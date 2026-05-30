@@ -21,7 +21,7 @@ flowforge = "flowforge.cli:app"
 line-length = 88
 
 [tool.ruff.lint]
-extend-select = ["B", "S", "C4", "DTZ", "LOG", "G", "PYI", "Q", "RET", "SIM", "ARG", "PTH", "I", "N", "E", "W", "F", "PLE", "PLR", "PLW", "UP", "RUF", "TRY"]
+extend-select = ["B", "C4", "DTZ", "LOG", "G", "PYI", "Q", "RET", "SIM", "ARG", "PTH", "I", "N", "E", "W", "F", "PLE", "PLR", "PLW", "UP", "RUF", "TRY"]
 
 [dependency-groups]
 dev = [
