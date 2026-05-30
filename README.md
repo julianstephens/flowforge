@@ -60,9 +60,3 @@ csv-importer/
   tests/
   README.md
 ```
-
-## Status
-
-Early specification and implementation planning. The project currently has a project specification and implementation issues, but the generator itself has not yet been built.
-
-See [`docs/project-specification.md`](docs/project-specification.md) for the full design.
