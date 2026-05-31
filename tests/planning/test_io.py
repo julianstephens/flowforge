@@ -56,6 +56,7 @@ def test_load_plan():
             "lock_manager": True,
             "idempotency_helpers": True,
             "structured_logging": True,
+            "python_version": "3.12",
         },
     }
 
@@ -125,12 +126,12 @@ def test_validate_invalid_plan():
     assert e.validation_error is not None
 
 
-def test_save_plan():
+def test_save_plan(tmp_path):
     data = load_plan("tests/data/plan.yaml")
     plan = validate_plan(data)
-    save_plan(plan, "tests/data/plan_saved.yaml")
+    save_plan(plan, tmp_path / "plan_saved.yaml")
 
-    loaded_data = load_plan("tests/data/plan_saved.yaml")
+    loaded_data = load_plan(tmp_path / "plan_saved.yaml")
     assert loaded_data == data
     loaded_plan = validate_plan(loaded_data)
     assert loaded_plan == plan

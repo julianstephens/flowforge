@@ -87,7 +87,7 @@ def save_plan(plan: ProjectPlan, filename: str) -> None:
         planfile.parent.mkdir(parents=True, exist_ok=True)
 
     with planfile.open("w") as f:
-        yaml.safe_dump(plan.model_dump(exclude_unset=True), f)
+        yaml.safe_dump(plan.model_dump(), f)
 
 
 def print_plan(plan: ProjectPlan) -> None:

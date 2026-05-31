@@ -16,6 +16,9 @@ class ProjectConfig(BaseModel):
     @classmethod
     def is_valid_python_package_name(cls, value: str) -> str:
         """Check if a string is a valid Python package name."""
+        # check empty string
+        if not value:
+            raise ValueError
         # check valid characters
         if not re.match(r"\w+$", value):
             raise ValueError
@@ -89,7 +92,7 @@ class ComponentConfig(BaseModel):
 
 
 class ProjectPlan(BaseModel):
-    schema_version: int = DEFAULT_SCHEMA_VERSION
+    schema_version: Literal[1] = DEFAULT_SCHEMA_VERSION
     project: ProjectConfig
     aws: AwsConfig
     components: dict[str, ComponentConfig]

@@ -54,3 +54,4 @@ runtime:
   lock_manager: true
   idempotency_helpers: true
   structured_logging: true
+  python_version: "3.12"
