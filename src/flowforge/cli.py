@@ -1,5 +1,8 @@
 from rich import print
+from rich.table import Table
 from typer import Typer
+
+from flowforge.catalog.registry import ComponentRegistry
 
 app = Typer(name="flowforge", help="FlowForge CLI")
 
@@ -42,5 +45,17 @@ def validate():
     help="List all components in the FlowForge architecture plan",
 )
 def list_components():
-    print(":warning: The 'list-components' command is not implemented yet.")
-    raise NotImplementedError
+    components = list(ComponentRegistry.list_components())
+    if not components:
+        print(":warning: No components found in the registry.")
+        return
+
+    table = Table(
+        show_header=True, header_style="bold magenta", show_lines=True, padding=(1, 1)
+    )
+    table.add_column("Type", style="dim")
+    table.add_column("Display Name")
+    table.add_column("Description")
+    for component in components:
+        table.add_row(component.type, component.display_name, component.description)
+    print(table)

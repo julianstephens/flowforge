@@ -3,6 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from flowforge.catalog.models import ComponentDefinition
+from flowforge.catalog.registry import ComponentRegistry
+
 DEFAULT_SCHEMA_VERSION = 1
 
 
@@ -97,3 +100,13 @@ class ProjectPlan(BaseModel):
     aws: AwsConfig
     components: dict[str, ComponentConfig]
     runtime: RuntimeConfig
+
+    def get_enabled_components(self) -> dict[str, ComponentDefinition | None]:
+        enabled_components = [
+            comp_type for comp_type, comp in self.components.items() if comp.enabled
+        ]
+        return {
+            comp_type: ComponentRegistry.get_component(comp_type)
+            for comp_type in enabled_components
+            if ComponentRegistry.is_valid_component_type(comp_type)
+        }
