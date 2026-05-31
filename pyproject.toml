@@ -23,9 +23,6 @@ line-length = 88
 [tool.ruff.lint]
 extend-select = ["B", "C4", "DTZ", "LOG", "G", "PYI", "Q", "RET", "SIM", "ARG", "PTH", "I", "N", "E", "W", "F", "PLE", "PLW", "UP", "RUF", "TRY"]
 
-[tool.pytest]
-pythonpath = ["src"]
-
 [dependency-groups]
 dev = [
     "moto>=5.2.1",
