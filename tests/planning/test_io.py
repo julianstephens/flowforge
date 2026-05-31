@@ -11,8 +11,8 @@ from flowforge.planning.io import (
 )
 
 
-def test_load_plan():
-    plan = load_plan("tests/data/plan.yaml")
+def test_load_plan(test_plan_path):
+    plan = load_plan(test_plan_path)
 
     assert plan == {
         "schema_version": 1,
@@ -49,6 +49,11 @@ def test_load_plan():
                 "ttl_attribute": "expires_at",
             },
             "artifacts": {"type": "s3_artifact_bucket", "enabled": True},
+            "logs": {"type": "cloudwatch_logs", "enabled": True},
+            "python_runtime": {"type": "python_runtime", "enabled": True},
+            "boto3_clients": {"type": "boto3_clients", "enabled": True},
+            "pydantic_models": {"type": "pydantic_models", "enabled": True},
+            "lock_manager": {"type": "lock_manager", "enabled": True},
         },
         "runtime": {
             "pydantic_models": True,
@@ -61,7 +66,7 @@ def test_load_plan():
     }
 
 
-def test_load_plan_invalid_yaml():
+def test_load_plan_invalid_yaml(invalid_extension_plan_path):
     with pytest.raises(InvalidPlanFileError) as exc_info:
         load_plan("tests/data/missing.yaml")
     e = exc_info.value
@@ -73,13 +78,13 @@ def test_load_plan_invalid_yaml():
     assert e.code == InvalidPlanFileCode.NOT_A_FILE
 
     with pytest.raises(InvalidPlanFileError) as exc_info:
-        load_plan("tests/data/invalid_extension.txt")
+        load_plan(invalid_extension_plan_path)
     e = exc_info.value
     assert e.code == InvalidPlanFileCode.INVALID_EXTENSION
 
 
-def test_validate_plan():
-    data = load_plan("tests/data/plan.yaml")
+def test_validate_plan(test_plan_path):
+    data = load_plan(test_plan_path)
 
     plan = validate_plan(data)
     assert plan.project.name == "csv_importer"
@@ -87,7 +92,7 @@ def test_validate_plan():
     assert plan.project.runtime == "python"
     assert plan.project.iac == "terraform"
 
-    assert len(plan.components) == 7
+    assert len(plan.components) == 12
     assert "orchestrator" in plan.components
     assert plan.components["orchestrator"].type == "step_functions_standard"
     assert plan.components["orchestrator"].enabled is True
@@ -126,8 +131,8 @@ def test_validate_invalid_plan():
     assert e.validation_error is not None
 
 
-def test_save_plan(tmp_path):
-    data = load_plan("tests/data/plan.yaml")
+def test_save_plan(tmp_path, test_plan_path):
+    data = load_plan(test_plan_path)
     plan = validate_plan(data)
     save_plan(plan, tmp_path / "plan_saved.yaml")
 
