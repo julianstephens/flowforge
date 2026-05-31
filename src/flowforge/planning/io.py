@@ -80,6 +80,13 @@ def validate_plan(data: Any) -> ProjectPlan:
     return valid_plan
 
 
+def load_and_validate_plan(filename: str) -> ProjectPlan:
+    """Load a project plan from a YAML file and validate it against
+    the ProjectPlan schema."""
+    raw_data = load_plan(filename)
+    return validate_plan(raw_data)
+
+
 def save_plan(plan: ProjectPlan, filename: str) -> None:
     """Save a project plan to a YAML file."""
     planfile = Path(filename)
