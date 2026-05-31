@@ -43,7 +43,7 @@ def validate():
 
 @app.command(
     name="list-components",
-    help="List all components in the FlowForge architecture plan",
+    help="List available components in the FlowForge catalog",
 )
 def list_components():
     components = list(ComponentRegistry.list_components())

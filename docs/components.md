@@ -15,5 +15,5 @@ Examples:
 - `infrastructure`: typically contribute Terraform resources
 - `workflow`: affect ASL and state machine generation
 - `runtime`: emit Python package code
-- `observability`: emit Terraform resources and ASL for monitoring and alerting
+- `observability`: emit Terraform resources for monitoring and alerting
 - `documentation`: emit markdown files for documentation
