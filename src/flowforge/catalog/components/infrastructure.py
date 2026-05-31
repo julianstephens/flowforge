@@ -4,7 +4,10 @@ API_GATEWAY = ComponentDefinition(
     type="api_gateway",
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="API Gateway",
-    description="An API Gateway component for managing API Gateway resources",
+    description=(
+        "Exposes HTTP endpoints for submitting or inspecting workflow jobs. "
+        "Use this when a generated project needs an external API entrypoint."
+    ),
     dependencies=["lambda_submitter"],
 )
 
@@ -13,8 +16,8 @@ LAMBDA_SUBMITTER = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="Lambda Submitter",
     description=(
-        "A Lambda Submitter component that can be used to submit tasks to a "
-        "serverless environment"
+        "Handles job-submission requests, validates input, creates initial job "
+        "records, and starts the configured workflow or async processing path."
     ),
     dependencies=["step_functions_standard", "dynamodb_jobs_table"],
 )
@@ -24,8 +27,9 @@ LAMBDA_WORKER = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="Lambda Worker",
     description=(
-        "A Lambda Worker component that can be used to run tasks in a "
-        "serverless environment"
+        "Provides a Lambda execution unit for processing individual tasks, "
+        "queue messages, or Distributed Map items. Generated scaffolds should "
+        "leave domain work explicit and editable."
     ),
     dependencies=["cloudwatch_logs"],
 )
@@ -35,8 +39,10 @@ SQS_STANDARD_QUEUE = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="SQS Standard Queue",
     description=(
-        "An SQS Standard Queue component that can be used to manage SQS "
-        "Standard Queue resources"
+        "Adds a standard SQS queue for open-ended asynchronous work, "
+        "producer/consumer buffering, or decoupling workers from request-time "
+        "execution. Use this for continuous event streams rather than bounded "
+        "batch fan-out."
     ),
 )
 
@@ -45,8 +51,8 @@ SQS_DLQ = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="SQS Dead Letter Queue",
     description=(
-        "An SQS Dead Letter Queue component that can be used to manage SQS "
-        "Dead Letter Queue resources"
+        "Adds a dead-letter queue for messages that exceed the configured retry limit. "
+        "Use this to preserve failed work for inspection and redrive."
     ),
     dependencies=["sqs_standard_queue"],
 )
@@ -56,8 +62,8 @@ DYNAMODB_JOBS_TABLE = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="DynamoDB Jobs Table",
     description=(
-        "A DynamoDB Jobs Table component that can be used to manage DynamoDB "
-        "tables for job tracking"
+        "Stores job-level state such as status, workflow execution ARN, input/output "
+        "references, task counts, timestamps, and failure summaries."
     ),
 )
 
@@ -66,8 +72,8 @@ DYNAMODB_TASKS_TABLE = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="DynamoDB Tasks Table",
     description=(
-        "A DynamoDB Tasks Table component that can be used to manage DynamoDB "
-        "tables for task tracking"
+        "Stores task-level state such as task status, attempt count, input/output "
+        "references, errors, and idempotency information."
     ),
 )
 
@@ -76,8 +82,10 @@ DYNAMODB_LOCKS_TABLE = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="DynamoDB Locks Table",
     description=(
-        "A DynamoDB Locks Table component that can be used to manage DynamoDB "
-        "tables for lock management"
+        "Stores DynamoDB-backed lease records for coordinating access to shared "
+        "resources such as tenants, partitions, external APIs, or exclusive "
+        "writers. Correct locking still depends on generated runtime code using "
+        "conditional acquire, heartbeat, and release operations."
     ),
 )
 
@@ -86,8 +94,9 @@ S3_ARTIFACT_BUCKET = ComponentDefinition(
     kind=ComponentKind.INFRASTRUCTURE,
     display_name="S3 Artifact Bucket",
     description=(
-        "An S3 Artifact Bucket component that can be used to manage S3 "
-        "buckets for artifact storage"
+        "Stores workflow inputs, manifests, intermediate outputs, final results, "
+        "and other generated artifacts that are too large or "
+        "durable for workflow state."
     ),
 )
 

@@ -5,8 +5,8 @@ CLOUDWATCH_LOGS = ComponentDefinition(
     kind=ComponentKind.OBSERVABILITY,
     display_name="CloudWatch Logs",
     description=(
-        "A CloudWatch Logs component that can be used to manage CloudWatch "
-        "Logs resources"
+        "Adds CloudWatch log groups and logging configuration for generated "
+        "Lambda functions, workflows, and runtime helpers."
     ),
 )
 
@@ -15,8 +15,9 @@ CLOUDWATCH_ALARMS = ComponentDefinition(
     kind=ComponentKind.OBSERVABILITY,
     display_name="CloudWatch Alarms",
     description=(
-        "A CloudWatch Alarms component that can be used to manage CloudWatch "
-        "Alarms resources"
+        "Adds a CloudWatch dashboard summarizing the generated workflow's operational "
+        "state, such as executions, failures, queue depth, task progress, and lock "
+        "contention where available."
     ),
     dependencies=["cloudwatch_logs"],
 )
@@ -26,8 +27,9 @@ CLOUDWATCH_DASHBOARD = ComponentDefinition(
     kind=ComponentKind.OBSERVABILITY,
     display_name="CloudWatch Dashboard",
     description=(
-        "A CloudWatch Dashboard component that can be used to manage "
-        "CloudWatch Dashboard resources"
+        "Adds basic CloudWatch alarms for selected resources, such as Lambda errors, "
+        "throttles, SQS message age, DLQ depth, Step Functions failures, "
+        "and DynamoDB throttling."
     ),
     dependencies=["cloudwatch_logs"],
 )

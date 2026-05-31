@@ -5,8 +5,8 @@ STEP_FUNCTIONS_STANDARD = ComponentDefinition(
     kind=ComponentKind.WORKFLOW,
     display_name="Step Functions Standard Workflow",
     description=(
-        "A Step Functions Standard Workflow component that can be used to "
-        "manage Step Functions Standard Workflow resources"
+        "Adds a Step Functions Standard workflow for durable multi-step orchestration, "
+        "retries, branching, fan-out/fan-in, and operational visibility."
     ),
     dependencies=[
         "cloudwatch_logs",
@@ -18,8 +18,9 @@ DISTRIBUTED_MAP = ComponentDefinition(
     kind=ComponentKind.WORKFLOW,
     display_name="Distributed Map",
     description=(
-        "A Distributed Map component that can be used to manage Step "
-        "Functions Distributed Map resources"
+        "Adds a Step Functions Distributed Map state for large bounded batch "
+        "fan-out over S3-backed data, manifests, records, files, or item batches. "
+        "Use this for finite batch workloads rather than open-ended queues."
     ),
     dependencies=[
         "step_functions_standard",

@@ -5,8 +5,8 @@ PYTHON_RUNTIME = ComponentDefinition(
     kind=ComponentKind.RUNTIME,
     display_name="Python Runtime",
     description=(
-        "A Python Runtime component that can be used to manage Python "
-        "runtime environments for executing tasks"
+        "Generates the local Python package structure used by Lambda handlers, "
+        "client wrappers, models, workflow helpers, and tests."
     ),
 )
 
@@ -15,8 +15,8 @@ PYDANTIC_MODELS = ComponentDefinition(
     kind=ComponentKind.RUNTIME,
     display_name="Pydantic Models",
     description=(
-        "A Pydantic Models component that can be used to manage Pydantic "
-        "models for data validation and serialization"
+        "Generates typed Pydantic models for workflow input, jobs, tasks, messages, "
+        "results, locks, and other selected project data structures."
     ),
     dependencies=["python_runtime"],
 )
@@ -26,8 +26,8 @@ BOTO3_CLIENTS = ComponentDefinition(
     kind=ComponentKind.RUNTIME,
     display_name="Boto3 Clients",
     description=(
-        "A Boto3 Clients component that can be used to manage Boto3 clients "
-        "for interacting with AWS services"
+        "Generates thin boto3 client factories and wrappers for the AWS services "
+        "enabled in the plan."
     ),
     dependencies=["python_runtime"],
 )
@@ -37,8 +37,10 @@ LOCK_MANAGER = ComponentDefinition(
     kind=ComponentKind.RUNTIME,
     display_name="Lock Manager",
     description=(
-        "A Lock Manager component that can be used to manage distributed "
-        "locks for coordinating access to shared resources"
+        "Generates runtime helpers for acquiring, heartbeating, and releasing "
+        "DynamoDB lease locks with conditional writes and owner-token checks. "
+        "Use this when tasks need exclusive or concurrency-limited access to "
+        "shared resources."
     ),
     dependencies=[
         "python_runtime",
@@ -53,8 +55,8 @@ IDEMPOTENCY_HELPERS = ComponentDefinition(
     kind=ComponentKind.RUNTIME,
     display_name="Idempotency Helpers",
     description=(
-        "An Idempotency Helpers component that can be used to manage "
-        "idempotency helpers for ensuring idempotent task execution"
+        "Generates helpers for making retries safe by deriving idempotency keys, "
+        "detecting repeated work, and avoiding duplicate output writes."
     ),
     dependencies=["python_runtime"],
 )
