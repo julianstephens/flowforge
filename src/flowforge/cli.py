@@ -1,3 +1,4 @@
+import typer
 from rich import print
 from rich.table import Table
 from typer import Typer
@@ -46,9 +47,9 @@ def validate():
 )
 def list_components():
     components = list(ComponentRegistry.list_components())
-    if not components:
-        print(":warning: No components found in the registry.")
-        return
+    if not components or len(components) == 0:
+        print(":error: No components found in the registry.")
+        typer.Exit(code=1)
 
     table = Table(
         show_header=True, header_style="bold magenta", show_lines=True, padding=(1, 1)
