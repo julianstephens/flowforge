@@ -102,6 +102,22 @@ class ComponentRegistry:
         return component.conflicts
 
     @staticmethod
+    def get_component_kind(component_type: str) -> str:
+        """Get the kind of a component by its type.
+
+        Args:
+            component_type: The type of the component.
+
+        Returns:
+            The kind of the component.
+
+        Raises:
+            ComponentNotFoundError: If the component type is not found in the registry.
+        """
+        component = ComponentRegistry.get_component(component_type)
+        return component.kind
+
+    @staticmethod
     def is_valid_component_type(component_type: str) -> bool:
         """Check if a component type is valid.
 

@@ -1,9 +1,16 @@
+from collections import defaultdict
+from pathlib import Path
+from typing import Annotated
+
 import typer
 from rich import print
 from rich.table import Table
 from typer import Typer
 
 from flowforge.catalog.registry import ComponentRegistry
+from flowforge.planning.diagnostics import DiagnosticSeverity
+from flowforge.planning.io import load_and_validate_plan
+from flowforge.planning.validator import Validator
 
 app = Typer(name="flowforge", help="FlowForge CLI")
 
@@ -36,9 +43,48 @@ def generate():
 
 
 @app.command(name="validate", help="Validate the FlowForge architecture plan")
-def validate():
-    print(":warning: The 'validate' command is not implemented yet.")
-    raise NotImplementedError
+def validate(
+    plan_path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to the project plan file",
+            dir_okay=False,
+            exists=True,
+        ),
+    ],
+):
+    try:
+        plan = load_and_validate_plan(str(plan_path))
+    except Exception as e:
+        print(f":x: Failed to load and validate plan: {e}")
+        raise typer.Exit(code=1) from e
+    validator = Validator(plan, str(plan_path))
+    diags = validator.validate()
+    if len(diags) == 0:
+        print(":white_check_mark: Plan is valid with no issues found.")
+    else:
+        diags_by_severity = defaultdict(list)
+        for diag in diags:
+            diags_by_severity[diag.severity.value].append(diag)
+        print(f":warning: Plan has {len(diags)} issue(s):")
+        color_map = {
+            "error": "red",
+            "warning": "yellow",
+            "info": "cyan",
+        }
+        for severity in DiagnosticSeverity.__members__.values():
+            if severity in diags_by_severity and len(diags_by_severity[severity]) > 0:
+                print(
+                    f"\n[bold {color_map[severity]}]{severity.upper()}S:"
+                    f"[/bold {color_map[severity]}]"
+                )
+                for diag in diags_by_severity[severity]:
+                    print(f"- {diag.message}")
+                    if diag.path:
+                        print(f"  Path: {diag.path}")
+                    if diag.details:
+                        print(f"  Details: {diag.details}")
+        raise typer.Exit(code=1 if validator.has_errors() else 0)
 
 
 @app.command(
@@ -48,7 +94,7 @@ def validate():
 def list_components():
     components = list(ComponentRegistry.list_components())
     if not components or len(components) == 0:
-        print(":error: No components found in the registry.")
+        print(":x: No components found in the registry.")
         raise typer.Exit(code=1)
 
     table = Table(

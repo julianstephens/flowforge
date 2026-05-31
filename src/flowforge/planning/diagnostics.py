@@ -10,9 +10,15 @@ class DiagnosticSeverity(StrEnum):
     ERROR = "error"
 
 
+class DiagnosticCode(StrEnum):
+    INVALID_COMPONENT = "invalid_component"
+    MISSING_COMPONENT_DEPENDENCY = "missing_component_dependency"
+    INCOMPATIBLE_COMPONENTS = "incompatible_components"
+
+
 class Diagnostic(BaseModel):
     severity: DiagnosticSeverity
-    code: str
+    code: DiagnosticCode
     message: str
     path: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
