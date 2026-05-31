@@ -1,12 +1,12 @@
 import pytest
 
 from flowforge.planning.errors import PlanValidationCode
-from src.flowforge.planning.io import (
+from flowforge.planning.io import (
     InvalidPlanFileCode,
     InvalidPlanFileError,
     PlanValidationError,
-    is_valid_python_package_name,
     load_plan,
+    save_plan,
     validate_plan,
 )
 
@@ -125,12 +125,12 @@ def test_validate_invalid_plan():
     assert e.validation_error is not None
 
 
-def test_is_valid_python_package_name():
-    assert is_valid_python_package_name("valid_package_name")
-    assert is_valid_python_package_name("valid_pass_package_name_123")
-    assert not is_valid_python_package_name("valid-package-name")
-    assert not is_valid_python_package_name("invalid package name")
-    assert not is_valid_python_package_name("invalid.package.name")
-    assert not is_valid_python_package_name("invalid-package-name!")
-    assert not is_valid_python_package_name("finally")
-    assert not is_valid_python_package_name("123invalid_package_name")
+def test_save_plan():
+    data = load_plan("tests/data/plan.yaml")
+    plan = validate_plan(data)
+    save_plan(plan, "tests/data/plan_saved.yaml")
+
+    loaded_data = load_plan("tests/data/plan_saved.yaml")
+    assert loaded_data == data
+    loaded_plan = validate_plan(loaded_data)
+    assert loaded_plan == plan
