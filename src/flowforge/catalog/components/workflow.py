@@ -27,3 +27,8 @@ DISTRIBUTED_MAP = ComponentDefinition(
         "s3_artifact_bucket",
     ],
 )
+
+COMPONENTS = [
+    STEP_FUNCTIONS_STANDARD,
+    DISTRIBUTED_MAP,
+]

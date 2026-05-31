@@ -58,3 +58,11 @@ IDEMPOTENCY_HELPERS = ComponentDefinition(
     ),
     dependencies=["python_runtime"],
 )
+
+COMPONENTS = [
+    PYTHON_RUNTIME,
+    PYDANTIC_MODELS,
+    BOTO3_CLIENTS,
+    LOCK_MANAGER,
+    IDEMPOTENCY_HELPERS,
+]

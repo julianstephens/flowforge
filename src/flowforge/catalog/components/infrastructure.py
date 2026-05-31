@@ -90,3 +90,15 @@ S3_ARTIFACT_BUCKET = ComponentDefinition(
         "buckets for artifact storage"
     ),
 )
+
+COMPONENTS = [
+    API_GATEWAY,
+    LAMBDA_SUBMITTER,
+    LAMBDA_WORKER,
+    SQS_STANDARD_QUEUE,
+    SQS_DLQ,
+    DYNAMODB_JOBS_TABLE,
+    DYNAMODB_TASKS_TABLE,
+    DYNAMODB_LOCKS_TABLE,
+    S3_ARTIFACT_BUCKET,
+]

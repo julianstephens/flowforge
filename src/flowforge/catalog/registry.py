@@ -1,7 +1,18 @@
 from functools import cache
-from pathlib import Path
+
+from flowforge.catalog.components import ALL_COMPONENTS
+from flowforge.planning.schemas import ProjectPlan
 
 from .models import ComponentDefinition
+
+
+class DuplicateComponentError(Exception):
+    """Raised when a duplicate component definition is found in the registry."""
+
+    def __init__(self, component_type: str):
+        super().__init__(
+            f"Duplicate component definition found for type: {component_type}"
+        )
 
 
 class ComponentRegistry:
@@ -16,19 +27,13 @@ class ComponentRegistry:
         Returns:
             A list of ComponentDefinition instances.
         """
-        component_dir = Path(__file__).parent / "components"
         res = []
-        for component_file in component_dir.glob("*.py"):
-            if component_file.name != "__init__.py":
-                module_name = component_file.stem
-                module = __import__(
-                    f"flowforge.catalog.components.{module_name}",
-                    fromlist=[module_name],
-                )
-                for attr in dir(module):
-                    obj = getattr(module, attr)
-                    if isinstance(obj, ComponentDefinition):
-                        res.append(obj)
+        seen_types = set()
+        for component in ALL_COMPONENTS:
+            if component.type in seen_types:
+                raise DuplicateComponentError(component.type)
+            seen_types.add(component.type)
+            res.append(component)
         return res
 
     @staticmethod
@@ -69,6 +74,24 @@ class ComponentRegistry:
         return []
 
     @staticmethod
+    def get_component_conflicts(component_type: str) -> list[str]:
+        """Get the conflicting components for a given component type.
+
+        Args:
+            component_type: The type of the component.
+
+        Returns:
+            A list of component types that conflict with the specified component.
+        """
+        if not component_type:
+            return []
+
+        component = ComponentRegistry.get_component(component_type)
+        if component:
+            return component.conflicts
+        return []
+
+    @staticmethod
     def is_valid_component_type(component_type: str) -> bool:
         """Check if a component type is valid.
 
@@ -81,3 +104,22 @@ class ComponentRegistry:
         if not component_type:
             return False
         return ComponentRegistry.get_component(component_type) is not None
+
+    @staticmethod
+    def get_enabled_components(
+        plan: ProjectPlan,
+    ) -> dict[str, ComponentDefinition | None]:
+        """Get the enabled components from a project plan.
+
+        Args:
+            plan: The ProjectPlan instance containing the component configurations.
+
+        Returns:
+            A dictionary mapping component names to their ComponentDefinition instances
+            if enabled, or None if the component type is invalid.
+        """
+        return {
+            name: ComponentRegistry.get_component(config.type)
+            for name, config in plan.components.items()
+            if config.enabled
+        }

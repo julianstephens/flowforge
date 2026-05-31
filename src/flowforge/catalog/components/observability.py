@@ -31,3 +31,9 @@ CLOUDWATCH_DASHBOARD = ComponentDefinition(
     ),
     dependencies=["cloudwatch_logs"],
 )
+
+COMPONENTS = [
+    CLOUDWATCH_LOGS,
+    CLOUDWATCH_ALARMS,
+    CLOUDWATCH_DASHBOARD,
+]
