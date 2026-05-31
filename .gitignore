@@ -211,3 +211,5 @@ coverage*
 
 .env*
 !.env.example
+
+.vscode

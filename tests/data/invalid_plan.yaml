@@ -1,0 +1,23 @@
+schema_version: 1
+
+project:
+  name: csv_importer
+  package_name: csv_importer
+  runtime: cobol
+  iac: cloudformation
+
+aws:
+  region: us-east-1
+  account_id: null
+
+components:
+  orchestrator:
+    type: step_functions_standard
+    enabled: true
+
+runtime:
+  pydantic_models: true
+  boto3_clients: true
+  lock_manager: true
+  idempotency_helpers: true
+  structured_logging: true
