@@ -1,9 +1,19 @@
 from functools import cache
+from typing import TYPE_CHECKING
 
 from flowforge.catalog.components import ALL_COMPONENTS
-from flowforge.planning.schemas import ProjectPlan
 
 from .models import ComponentDefinition
+
+if TYPE_CHECKING:
+    from flowforge.planning.schemas import ProjectPlan
+
+
+class ComponentNotFoundError(Exception):
+    """Raised when a component definition is not found in the registry."""
+
+    def __init__(self, component_type: str):
+        super().__init__(f"Component definition not found for type: {component_type}")
 
 
 class DuplicateComponentError(Exception):
@@ -37,7 +47,7 @@ class ComponentRegistry:
         return res
 
     @staticmethod
-    def get_component(component_type: str) -> ComponentDefinition | None:
+    def get_component(component_type: str) -> ComponentDefinition:
         """Get a component definition by its type.
 
         Args:
@@ -45,15 +55,19 @@ class ComponentRegistry:
 
         Returns:
             The ComponentDefinition instance if found, otherwise None.
+
+        Raises:
+            ComponentNotFoundError: If the component type is not found in the registry.
         """
         if not component_type:
-            return None
+            raise ComponentNotFoundError(component_type)
 
         all_components = list(ComponentRegistry.list_components())
         for component in all_components:
             if component.type == component_type:
                 return component
-        return None
+
+        raise ComponentNotFoundError(component_type)
 
     @staticmethod
     def get_component_dependencies(component_type: str) -> list[str]:
@@ -64,14 +78,12 @@ class ComponentRegistry:
 
         Returns:
             A list of component types that the specified component depends on.
-        """
-        if not component_type:
-            return []
 
+        Raises:
+            ComponentNotFoundError: If the component type is not found in the registry.
+        """
         component = ComponentRegistry.get_component(component_type)
-        if component:
-            return component.dependencies
-        return []
+        return component.dependencies
 
     @staticmethod
     def get_component_conflicts(component_type: str) -> list[str]:
@@ -82,14 +94,12 @@ class ComponentRegistry:
 
         Returns:
             A list of component types that conflict with the specified component.
-        """
-        if not component_type:
-            return []
 
+        Raises:
+            ComponentNotFoundError: If the component type is not found in the registry.
+        """
         component = ComponentRegistry.get_component(component_type)
-        if component:
-            return component.conflicts
-        return []
+        return component.conflicts
 
     @staticmethod
     def is_valid_component_type(component_type: str) -> bool:
@@ -103,12 +113,17 @@ class ComponentRegistry:
         """
         if not component_type:
             return False
-        return ComponentRegistry.get_component(component_type) is not None
+        try:
+            ComponentRegistry.get_component(component_type)
+        except ComponentNotFoundError:
+            return False
+        else:
+            return True
 
     @staticmethod
     def get_enabled_components(
-        plan: ProjectPlan,
-    ) -> dict[str, ComponentDefinition | None]:
+        plan: "ProjectPlan",
+    ) -> dict[str, ComponentDefinition]:
         """Get the enabled components from a project plan.
 
         Args:
@@ -116,7 +131,11 @@ class ComponentRegistry:
 
         Returns:
             A dictionary mapping component names to their ComponentDefinition instances
-            if enabled, or None if the component type is invalid.
+            if enabled.
+
+        Raises:
+            ComponentNotFoundError: If any enabled component type is not found in
+            the registry.
         """
         return {
             name: ComponentRegistry.get_component(config.type)

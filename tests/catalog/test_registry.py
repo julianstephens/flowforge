@@ -52,12 +52,18 @@ def test_get_component():
     assert component.type == "cloudwatch_logs", "Component type should match"
 
     # Test with an invalid component type
-    component = ComponentRegistry.get_component("non_existent_component")
-    assert component is None, "Expected to return None for non-existent component"
+    with pytest.raises(Exception) as exc_info:
+        ComponentRegistry.get_component("non_existent_component")
+    assert (
+        exc_info.typename == "ComponentNotFoundError"
+    ), "Expected ComponentNotFoundError to be raised"
 
     # Test with an empty string
-    component = ComponentRegistry.get_component("")
-    assert component is None, "Expected to return None for empty component type"
+    with pytest.raises(Exception) as exc_info:
+        ComponentRegistry.get_component("")
+    assert (
+        exc_info.typename == "ComponentNotFoundError"
+    ), "Expected ComponentNotFoundError to be raised for empty component type"
 
 
 def test_get_component_dependencies():
@@ -72,18 +78,18 @@ def test_get_component_dependencies():
     assert dependencies == [], "Expected 'cloudwatch_logs' to have no dependencies"
 
     # Test with an invalid component type
-    dependencies = ComponentRegistry.get_component_dependencies(
-        "non_existent_component"
-    )
+    with pytest.raises(Exception) as exc_info:
+        ComponentRegistry.get_component_dependencies("non_existent_component")
     assert (
-        dependencies == []
-    ), "Expected to return an empty list for non-existent component"
+        exc_info.typename == "ComponentNotFoundError"
+    ), "Expected ComponentNotFoundError to be raised for non-existent component"
 
     # Test with an empty string
-    dependencies = ComponentRegistry.get_component_dependencies("")
+    with pytest.raises(Exception) as exc_info:
+        ComponentRegistry.get_component_dependencies("")
     assert (
-        dependencies == []
-    ), "Expected to return an empty list for empty component type"
+        exc_info.typename == "ComponentNotFoundError"
+    ), "Expected ComponentNotFoundError to be raised for empty component type"
 
 
 def test_is_valid_component_type():
@@ -109,20 +115,34 @@ def test_get_component_conflicts():
     assert conflicts == [], "Expected 'cloudwatch_logs' to have no conflicts"
 
     # Test with an invalid component type
-    conflicts = ComponentRegistry.get_component_conflicts("non_existent_component")
+    with pytest.raises(Exception) as exc_info:
+        ComponentRegistry.get_component_conflicts("non_existent_component")
     assert (
-        conflicts == []
-    ), "Expected to return an empty list for non-existent component"
+        exc_info.typename == "ComponentNotFoundError"
+    ), "Expected ComponentNotFoundError to be raised for non-existent component"
 
     # Test with an empty string
-    conflicts = ComponentRegistry.get_component_conflicts("")
-    assert conflicts == [], "Expected to return an empty list for empty component type"
+    with pytest.raises(Exception) as exc_info:
+        ComponentRegistry.get_component_conflicts("")
+    assert (
+        exc_info.typename == "ComponentNotFoundError"
+    ), "Expected ComponentNotFoundError to be raised for empty component type"
 
 
 def test_get_enabled_components():
     plan = load_and_validate_plan("tests/data/plan.yaml")
 
     enabled_components = ComponentRegistry.get_enabled_components(plan)
+    for key, value in enabled_components.items():
+        assert key, "Expected component keys to be non-empty strings"
+        assert value, "Expected component values to be non-null"
+        assert isinstance(
+            value, ComponentDefinition
+        ), "Expected component values to be ComponentDefinition instances"
+        assert value.type in [
+            c.type for c in forge_components.ALL_COMPONENTS
+        ], f"Expected component type '{value.type}' to be in the catalog"
+
     assert (
         plan.components.keys() == enabled_components.keys()
     ), "Expected enabled components to match plan components"
