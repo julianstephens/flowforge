@@ -44,6 +44,10 @@ components:
     type: cloudwatch_logs
     enabled: true
 
+  runtime:
+    type: python_runtime
+    enabled: true
+
 runtime:
   pydantic_models: false
   boto3_clients: false

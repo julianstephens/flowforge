@@ -139,11 +139,15 @@ class ComponentRegistry:
     @staticmethod
     def get_enabled_components(
         plan: "ProjectPlan",
+        raise_on_missing: bool = True,
     ) -> dict[str, ComponentDefinition]:
         """Get the enabled components from a project plan.
 
         Args:
             plan: The ProjectPlan instance containing the component configurations.
+            raise_on_missing: If True, raises ComponentNotFoundError if any enabled
+            component type is not found in the registry. If False, missing components
+            will be ignored and not included in the returned dictionary.
 
         Returns:
             A dictionary mapping component names to their ComponentDefinition instances
@@ -151,10 +155,21 @@ class ComponentRegistry:
 
         Raises:
             ComponentNotFoundError: If any enabled component type is not found in
-            the registry.
+            the registry and raise_on_missing is True.
         """
-        return {
-            name: ComponentRegistry.get_component(config.type)
-            for name, config in plan.components.items()
-            if config.enabled
-        }
+
+        def get_component_or_raise(config_type: str) -> ComponentDefinition | None:
+            try:
+                return ComponentRegistry.get_component(config_type)
+            except ComponentNotFoundError:
+                if raise_on_missing:
+                    raise
+                return None
+
+        res = {}
+        for name, config in plan.components.items():
+            if config.enabled:
+                comp = get_component_or_raise(config.type)
+                if comp is not None:
+                    res[name] = comp
+        return res

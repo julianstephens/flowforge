@@ -8,7 +8,7 @@ from rich.table import Table
 from typer import Typer
 
 from flowforge.catalog.registry import ComponentRegistry
-from flowforge.planning.diagnostics import DiagnosticSeverity
+from flowforge.planning.diagnostics import Diagnostic, DiagnosticSeverity
 from flowforge.planning.io import load_and_validate_plan
 from flowforge.planning.validator import Validator
 
@@ -42,7 +42,7 @@ def generate():
     raise NotImplementedError
 
 
-@app.command(name="validate", help="Validate the FlowForge architecture plan")
+@app.command(name="validate-plan", help="Validate the FlowForge architecture plan")
 def validate(
     plan_path: Annotated[
         Path,
@@ -63,9 +63,11 @@ def validate(
     if len(diags) == 0:
         print(":white_check_mark: Plan is valid with no issues found.")
     else:
-        diags_by_severity = defaultdict(list)
+        diags_by_severity: dict[DiagnosticSeverity, list[Diagnostic]] = defaultdict(
+            list
+        )
         for diag in diags:
-            diags_by_severity[diag.severity.value].append(diag)
+            diags_by_severity[diag.severity].append(diag)
         print(f":warning: Plan has {len(diags)} issue(s):")
         color_map = {
             "error": "red",
@@ -74,9 +76,10 @@ def validate(
         }
         for severity in DiagnosticSeverity.__members__.values():
             if severity in diags_by_severity and len(diags_by_severity[severity]) > 0:
+                sev = severity.value
                 print(
-                    f"\n[bold {color_map[severity]}]{severity.upper()}S:"
-                    f"[/bold {color_map[severity]}]"
+                    f"\n[bold {color_map[sev]}]{sev.upper()}S:"
+                    f"[/bold {color_map[sev]}]"
                 )
                 for diag in diags_by_severity[severity]:
                     print(f"- {diag.message}")

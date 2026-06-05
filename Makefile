@@ -35,4 +35,4 @@ lint:
 
 test:
 	@echo "Running tests..."
-	@pytest --cov=./src tests/
+	@uv run pytest --cov=./src tests/

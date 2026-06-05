@@ -87,7 +87,6 @@ DYNAMODB_LOCKS_TABLE = ComponentDefinition(
         "writers. Correct locking still depends on generated runtime code using "
         "conditional acquire, heartbeat, and release operations."
     ),
-    dependencies=["lock_manager"],
 )
 
 S3_ARTIFACT_BUCKET = ComponentDefinition(
