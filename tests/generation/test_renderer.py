@@ -84,7 +84,10 @@ class TestBuildRenderContext:
         assert "runtime" in ctx
         assert "components" in ctx
         assert "enabled_components" in ctx
-        assert "component_types" in ctx
+        assert "enabled_component_types" in ctx
+        assert "alarmable_components" in ctx
+        assert "project_name" in ctx
+        assert "package_name" in ctx
 
     def test_plan_references_match(self):
         plan = _make_plan()
@@ -95,6 +98,8 @@ class TestBuildRenderContext:
         assert ctx["aws"] is plan.aws
         assert ctx["runtime"] is plan.runtime
         assert ctx["components"] is plan.components
+        assert ctx["project_name"] == plan.project.name
+        assert ctx["package_name"] == plan.project.package_name
 
     def test_component_types_is_set_of_type_strings(self):
         plan = _make_plan(
@@ -112,9 +117,9 @@ class TestBuildRenderContext:
             }
         )
         ctx = Renderer.build_render_context(plan)
-        assert isinstance(ctx["component_types"], set)
-        assert "step_functions_standard" in ctx["component_types"]
-        assert "distributed_map" in ctx["component_types"]
+        assert isinstance(ctx["enabled_component_types"], set)
+        assert "step_functions_standard" in ctx["enabled_component_types"]
+        assert "distributed_map" in ctx["enabled_component_types"]
 
     def test_disabled_components_excluded(self):
         plan = _make_plan(
@@ -124,7 +129,7 @@ class TestBuildRenderContext:
             }
         )
         ctx = Renderer.build_render_context(plan)
-        component_types = ctx["component_types"]
+        component_types = ctx["enabled_component_types"]
         assert "cloudwatch_logs" not in component_types
 
     def test_raises_on_unknown_component_type(self):
@@ -213,7 +218,7 @@ class TestRenderFiles:
     def test_invalid_spec_error_collected_not_raised(self, tmp_path):
         plan = _make_plan()
         spec = TemplateSpec(
-            template_path=tmp_path / "missing.j2",
+            template_path=tmp_path / "templates" / "bad.txt",
             output_path=Path("out/foo.tf"),
         )
         mock_env = self._mock_env()
@@ -257,7 +262,7 @@ class TestRenderFiles:
     def test_processing_continues_after_error(self, tmp_path):
         plan = _make_plan()
         bad_spec = TemplateSpec(
-            template_path=tmp_path / "missing.j2",
+            template_path=tmp_path / "templates" / "bad.txt",
             output_path=Path("out/bad.tf"),
         )
         good_spec = self._make_spec(tmp_path, "good.j2", "out/good.tf")
@@ -272,6 +277,20 @@ class TestRenderFiles:
         assert result.generated_files[0].path == good_spec.output_path
         assert str(bad_spec.template_path) in result.errors
 
+    def test_render_error_during_rendering_collected(self, tmp_path):
+        plan = _make_plan()
+        spec = self._make_spec(tmp_path)
+        mock_template = MagicMock()
+        mock_template.render.side_effect = RuntimeError("render boom")
+        mock_env = MagicMock()
+        mock_env.get_template.return_value = mock_template
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result = Renderer.render_files(plan=plan, template_specs=[spec])
+
+        assert len(result.generated_files) == 0
+        assert str(spec.template_path) in result.errors
+
     def test_get_template_called_with_template_name(self, tmp_path):
         plan = _make_plan()
         spec = self._make_spec(tmp_path, "mytemplate.j2", "out/foo.tf")
@@ -280,7 +299,7 @@ class TestRenderFiles:
         with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
             Renderer.render_files(plan=plan, template_specs=[spec])
 
-        mock_env.get_template.assert_called_with("mytemplate.j2")
+        mock_env.get_template.assert_called_with(str(spec.template_path))
 
     def test_template_render_called_with_context_keys(self, tmp_path):
         plan = _make_plan()
@@ -300,7 +319,10 @@ class TestRenderFiles:
         assert "runtime" in call_kwargs
         assert "components" in call_kwargs
         assert "enabled_components" in call_kwargs
-        assert "component_types" in call_kwargs
+        assert "enabled_component_types" in call_kwargs
+        assert "alarmable_components" in call_kwargs
+        assert "project_name" in call_kwargs
+        assert "package_name" in call_kwargs
 
     def test_deterministic_rendering_same_plan(self, tmp_path):
         plan = _make_plan()
@@ -335,10 +357,12 @@ class TestRenderFiles:
         plan = _make_plan()
         specs = [
             TemplateSpec(
-                template_path=tmp_path / "missing1.j2", output_path=Path("out/a.tf")
+                template_path=tmp_path / "templates" / "a.txt",
+                output_path=Path("out/a.tf"),
             ),
             TemplateSpec(
-                template_path=tmp_path / "missing2.j2", output_path=Path("out/b.tf")
+                template_path=tmp_path / "templates" / "b.txt",
+                output_path=Path("out/b.tf"),
             ),
         ]
         mock_env = self._mock_env()
@@ -351,15 +375,12 @@ class TestRenderFiles:
 
 
 class TestValidateTemplateSpec:
-    def test_nonexistent_template_path_raises(self, tmp_path):
+    def test_nonexistent_template_path_still_valid_if_extension_correct(self, tmp_path):
         spec = TemplateSpec(
             template_path=tmp_path / "missing.j2",
             output_path=Path("out/foo.tf"),
         )
-        with pytest.raises(InvalidTemplateSpecError) as exc_info:
-            Renderer.validate_template_spec(spec)
-        assert exc_info.value.spec is spec
-        assert "does not exist" in str(exc_info.value)
+        Renderer.validate_template_spec(spec)  # existence no longer checked
 
     def test_wrong_extension_raises(self, tmp_path):
         bad = tmp_path / "template.txt"
@@ -381,15 +402,15 @@ class TestValidateTemplateSpec:
         assert exc_info.value.spec is spec
         assert "extension" in str(exc_info.value)
 
-    def test_valid_spec_does_not_raise(self, tmp_path):
-        template = tmp_path / "template.j2"
-        template.write_text("")
-        spec = TemplateSpec(template_path=template, output_path=Path("out/foo.tf"))
+    def test_valid_spec_does_not_raise(self):
+        spec = TemplateSpec(
+            template_path=Path("template.j2"), output_path=Path("out/foo.tf")
+        )
         Renderer.validate_template_spec(spec)  # should not raise
 
-    def test_spec_stored_on_error(self, tmp_path):
+    def test_spec_stored_on_error(self):
         spec = TemplateSpec(
-            template_path=tmp_path / "ghost.j2",
+            template_path=Path("wrong_extension.txt"),
             output_path=Path("out/foo.tf"),
         )
         with pytest.raises(InvalidTemplateSpecError) as exc_info:
@@ -443,7 +464,7 @@ class TestRenderTemplate:
 
         renderer.render_template(spec, {})
 
-        mock_env.get_template.assert_called_with("mytemplate.j2")
+        mock_env.get_template.assert_called_with(str(spec.template_path))
 
     def test_context_passed_to_template_render(self, tmp_path):
         renderer, _, mock_template = self._make_renderer_with_mock_env()
@@ -454,10 +475,10 @@ class TestRenderTemplate:
 
         mock_template.render.assert_called_once_with(**context)
 
-    def test_raises_invalid_spec_on_bad_template_path(self, tmp_path):
+    def test_raises_invalid_spec_on_bad_template_extension(self, tmp_path):
         renderer, _, _ = self._make_renderer_with_mock_env()
         spec = TemplateSpec(
-            template_path=tmp_path / "missing.j2",
+            template_path=tmp_path / "template.txt",
             output_path=Path("out/foo.tf"),
         )
         with pytest.raises(InvalidTemplateSpecError):
