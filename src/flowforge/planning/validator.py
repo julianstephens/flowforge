@@ -137,33 +137,6 @@ class Validator:
 
         return self._diagnostics
 
-    def _validate_component_type(self, name: str, component: ComponentConfig) -> bool:
-        """Checks if the component type is valid and recognized. If not, adds an error
-        diagnostic.
-
-        Args:
-            name: The name of the component in the plan.
-            component: The ComponentConfig object representing the component's
-            configuration.
-
-        Returns:
-            True if the component type is valid and recognized, False otherwise.
-        """
-        if not ComponentRegistry.is_valid_component_type(component.type):
-            self._diagnostics.append(
-                Diagnostic(
-                    severity=DiagnosticSeverity.ERROR,
-                    code=DiagnosticCode.UNKNOWN_COMPONENT_TYPE,
-                    message=f"Unknown component type '{component.type}'",
-                    path=component_field_path(name, "type"),
-                    details=unknown_component_details(
-                        component_name=name, component=component
-                    ),
-                )
-            )
-            return False
-        return True
-
     def _validate_component_dependencies(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
@@ -247,10 +220,10 @@ class Validator:
             support alarms.
         """
         alarmable_components = {}
-        for name, component in known_enabled_components_by_name.items():
-            definition = ComponentRegistry.get_component(component.type)
+        for known_name, known_component in known_enabled_components_by_name.items():
+            definition = ComponentRegistry.get_component(known_component.type)
             if definition.supports_alarms:
-                alarmable_components[name] = definition
+                alarmable_components[known_name] = definition
 
         if not alarmable_components:
             self._diagnostics.append(
