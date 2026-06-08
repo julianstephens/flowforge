@@ -49,6 +49,8 @@ class Renderer:
         self._jinja_env = Environment(
             loader=PackageLoader(APP_PACKAGE),
             autoescape=select_autoescape(),
+            trim_blocks=True,
+            lstrip_blocks=True,
         )
 
     def render_template(
@@ -69,9 +71,7 @@ class Renderer:
         """
         Renderer.validate_template_spec(spec)
         try:
-            template = self._jinja_env.get_template(
-                _get_template_name(spec.template_path)
-            )
+            template = self._jinja_env.get_template(str(spec.template_path))
         except TemplateNotFound as e:
             raise InvalidTemplateSpecError(spec, f"failed to load template: {e}") from e
         content = template.render(**context)
@@ -93,8 +93,6 @@ class Renderer:
             InvalidTemplateSpecError: If the template path is invalid or does not end
             with .j2, or if the output path does not have a file extension.
         """
-        if not spec.template_path.exists():
-            raise InvalidTemplateSpecError(spec, "template path does not exist")
         if spec.template_path.suffix != ".j2":
             raise InvalidTemplateSpecError(spec, "template path must end with .j2")
         if not spec.output_path.suffix:
@@ -156,6 +154,8 @@ class Renderer:
         env = Environment(
             loader=PackageLoader(APP_PACKAGE),
             autoescape=select_autoescape(),
+            trim_blocks=True,
+            lstrip_blocks=True,
         )
 
         result = RenderResult()
@@ -166,7 +166,7 @@ class Renderer:
                 result.errors[str(spec.template_path)] = e
                 continue
             try:
-                template = env.get_template(_get_template_name(spec.template_path))
+                template = env.get_template(str(spec.template_path))
             except TemplateNotFound as e:
                 result.errors[str(spec.template_path)] = InvalidTemplateSpecError(
                     spec, f"failed to load template: {e}"

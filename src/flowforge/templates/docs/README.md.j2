@@ -94,11 +94,11 @@ Flowforge does not manage Terraform state. Configure local or remote state accor
 
 ## Workflow
 
-{% if "distributed_map" in enabled_component_types %}
+{% if "distributed_map" in component_types %}
 This project uses Step Functions Distributed Map for bounded batch fan-out.
 
 Use this pattern when the workload is finite, dataset-driven, and known at workflow start. Typical inputs include CSV files, JSONL files, manifests, S3 object lists, or bounded item batches.
-{% elif "sqs_standard_queue" in enabled_component_types %}
+{% elif "sqs_standard_queue" in component_types %}
 This project uses SQS for asynchronous producer/consumer work.
 
 Use this pattern when work arrives continuously, needs buffering, or should be processed independently from request-time execution.
@@ -143,7 +143,7 @@ NotImplementedError
 
 to find the places where project-specific logic must be added.
 
-{% if "lock_manager" in enabled_component_types %}
+{% if "lock_manager" in component_types %}
 
 ## Locking
 
@@ -160,7 +160,7 @@ Terraform provisions the lock table. Correct locking depends on runtime code usi
 A stale worker must not be able to release or heartbeat a lock acquired by a newer worker.
 {% endif %}
 
-{% if "idempotency_helpers" in enabled_component_types %}
+{% if "idempotency_helpers" in component_types %}
 
 ## Idempotency
 
@@ -169,7 +169,7 @@ This project includes idempotency helpers.
 Use stable idempotency keys for task attempts and output writes. Retries should not duplicate durable side effects.
 {% endif %}
 
-{% if "cloudwatch_alarms" in enabled_component_types %}
+{% if "cloudwatch_alarms" in component_types %}
 
 ## Observability
 
@@ -181,7 +181,8 @@ Alarmable components in this plan:
 |---|---|---|
 {% for name, definition in alarmable_components.items() -%}
 | `{{ name }}` | `{{ definition.type }}` | {% if definition.default_alarm_templates %}`{{ definition.default_alarm_templates | join("`, `") }}`{% else %}None{% endif %} |
-{% endfor %}                                            |                         |                                                                                   |                                           |
+{% endfor %}
+{% endif %}
 
 ## Plan file
 
