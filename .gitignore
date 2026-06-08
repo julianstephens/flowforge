@@ -213,3 +213,5 @@ coverage*
 !.env.example
 
 .vscode
+
+tmp
