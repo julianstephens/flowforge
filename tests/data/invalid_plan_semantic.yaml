@@ -1,0 +1,31 @@
+schema_version: 1
+
+project:
+  name: bad_plan
+  package_name: bad_plan
+  runtime: python
+  iac: terraform
+
+aws:
+  region: us-east-1
+  account_id: null
+
+components:
+  worker:
+    type: lambda_worker
+    enabled: true
+    runtime: python3.12
+    timeout_seconds: 60
+    memory_mb: 512
+
+  logs:
+    type: cloudwatch_logs
+    enabled: true
+
+runtime:
+  pydantic_models: false
+  boto3_clients: false
+  lock_manager: false
+  idempotency_helpers: false
+  structured_logging: false
+  python_version: "3.12"

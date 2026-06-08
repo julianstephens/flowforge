@@ -11,6 +11,12 @@ STEP_FUNCTIONS_STANDARD = ComponentDefinition(
     dependencies=[
         "cloudwatch_logs",
     ],
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/stepfunctions_failed_executions",
+        "cloudwatch/stepfunctions_timed_out_executions",
+        "cloudwatch/stepfunctions_throttled_events",
+    ],
 )
 
 DISTRIBUTED_MAP = ComponentDefinition(
@@ -25,7 +31,6 @@ DISTRIBUTED_MAP = ComponentDefinition(
     dependencies=[
         "step_functions_standard",
         "lambda_worker",
-        "s3_artifact_bucket",
     ],
 )
 

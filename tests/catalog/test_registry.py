@@ -129,8 +129,8 @@ def test_get_component_conflicts():
     ), "Expected ComponentNotFoundError to be raised for empty component type"
 
 
-def test_get_enabled_components():
-    plan = load_and_validate_plan("tests/data/plan.yaml")
+def test_get_enabled_components(test_plan_path):
+    plan = load_and_validate_plan(test_plan_path)
 
     enabled_components = ComponentRegistry.get_enabled_components(plan)
     for key, value in enabled_components.items():

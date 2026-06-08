@@ -1,0 +1,48 @@
+schema_version: 1
+
+project:
+  name: batch_processor
+  package_name: batch_processor
+  runtime: python
+  iac: terraform
+
+aws:
+  region: us-east-1
+  account_id: null
+
+components:
+  orchestrator:
+    type: step_functions_standard
+    enabled: true
+
+  batch_map:
+    type: distributed_map
+    enabled: true
+    item_source: s3
+    input_type: jsonl
+    max_concurrency: 100
+    tolerated_failure_percentage: 5
+    result_writer: s3
+
+  item_processor:
+    type: lambda_worker
+    enabled: true
+    runtime: python3.12
+    timeout_seconds: 300
+    memory_mb: 1024
+
+  artifacts:
+    type: s3_artifact_bucket
+    enabled: true
+
+  logs:
+    type: cloudwatch_logs
+    enabled: true
+
+runtime:
+  pydantic_models: false
+  boto3_clients: false
+  lock_manager: false
+  idempotency_helpers: false
+  structured_logging: false
+  python_version: "3.12"

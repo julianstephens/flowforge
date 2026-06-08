@@ -28,6 +28,7 @@ clean:
 fmt:
 	@echo "Formatting the code..."
 	@uvx ruff format
+	@prettier -w "docs/**/*.{json,yaml,yml,md}" "tests/**/*.{json,yaml,yml,md}" "*.{json,yaml,yml,md}"
 
 lint:
 	@echo "Linting the code..."
@@ -35,4 +36,4 @@ lint:
 
 test:
 	@echo "Running tests..."
-	@pytest --cov=./src tests/
+	@uv run pytest --cov=./src tests/
