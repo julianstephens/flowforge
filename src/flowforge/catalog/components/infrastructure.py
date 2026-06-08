@@ -20,6 +20,12 @@ LAMBDA_SUBMITTER = ComponentDefinition(
         "records, and starts the configured workflow or async processing path."
     ),
     dependencies=["step_functions_standard", "dynamodb_jobs_table"],
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/lambda_errors",
+        "cloudwatch/lambda_throttles",
+        "cloudwatch/lambda_duration",
+    ],
 )
 
 LAMBDA_WORKER = ComponentDefinition(
@@ -32,6 +38,12 @@ LAMBDA_WORKER = ComponentDefinition(
         "leave domain work explicit and editable."
     ),
     dependencies=["cloudwatch_logs"],
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/lambda_errors",
+        "cloudwatch/lambda_throttles",
+        "cloudwatch/lambda_duration",
+    ],
 )
 
 SQS_STANDARD_QUEUE = ComponentDefinition(
@@ -44,6 +56,11 @@ SQS_STANDARD_QUEUE = ComponentDefinition(
         "execution. Use this for continuous event streams rather than bounded "
         "batch fan-out."
     ),
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/sqs_oldest_message",
+        "cloudwatch/sqs_visible_messages",
+    ],
 )
 
 SQS_DLQ = ComponentDefinition(
@@ -55,6 +72,10 @@ SQS_DLQ = ComponentDefinition(
         "Use this to preserve failed work for inspection and redrive."
     ),
     dependencies=["sqs_standard_queue"],
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/sqs_dlq_visible_messages",
+    ],
 )
 
 DYNAMODB_JOBS_TABLE = ComponentDefinition(
@@ -65,6 +86,11 @@ DYNAMODB_JOBS_TABLE = ComponentDefinition(
         "Stores job-level state such as status, workflow execution ARN, input/output "
         "references, task counts, timestamps, and failure summaries."
     ),
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/dynamodb_throttled_requests",
+        "cloudwatch/dynamodb_system_errors",
+    ],
 )
 
 DYNAMODB_TASKS_TABLE = ComponentDefinition(
@@ -75,6 +101,11 @@ DYNAMODB_TASKS_TABLE = ComponentDefinition(
         "Stores task-level state such as task status, attempt count, input/output "
         "references, errors, and idempotency information."
     ),
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/dynamodb_throttled_requests",
+        "cloudwatch/dynamodb_system_errors",
+    ],
 )
 
 DYNAMODB_LOCKS_TABLE = ComponentDefinition(
@@ -87,6 +118,11 @@ DYNAMODB_LOCKS_TABLE = ComponentDefinition(
         "writers. Correct locking still depends on generated runtime code using "
         "conditional acquire, heartbeat, and release operations."
     ),
+    supports_alarms=True,
+    default_alarm_templates=[
+        "cloudwatch/dynamodb_throttled_requests",
+        "cloudwatch/dynamodb_system_errors",
+    ],
 )
 
 S3_ARTIFACT_BUCKET = ComponentDefinition(

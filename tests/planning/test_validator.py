@@ -133,9 +133,29 @@ class TestValidator:
             }
         )
         diags = Validator(plan).validate()
-        assert any(
+        matching = [
+            d
+            for d in diags
+            if d.code == DiagnosticCode.DISTRIBUTED_MAP_WITHOUT_ARTIFACT_BUCKET
+        ]
+        assert len(matching) == 1
+        assert matching[0].severity == DiagnosticSeverity.WARNING
+
+    def test_distributed_map_with_s3_no_warning(self):
+        # s3_artifact_bucket present → no DISTRIBUTED_MAP_WITHOUT_ARTIFACT_BUCKET
+        # diagnostic
+        plan = _make_plan(
+            {
+                "orchestrator": {"type": STEP_FUNCTIONS_STANDARD.type, "enabled": True},
+                "batch_map": {"type": DISTRIBUTED_MAP.type, "enabled": True},
+                "worker": {"type": "lambda_worker", "enabled": True},
+                "artifacts": {"type": "s3_artifact_bucket", "enabled": True},
+                "logs": {"type": "cloudwatch_logs", "enabled": True},
+            }
+        )
+        diags = Validator(plan).validate()
+        assert not any(
             d.code == DiagnosticCode.DISTRIBUTED_MAP_WITHOUT_ARTIFACT_BUCKET
-            and d.severity == DiagnosticSeverity.WARNING
             for d in diags
         )
 
@@ -165,7 +185,7 @@ class TestValidator:
 
     def test_cloudwatch_alarms_without_infrastructure_fails(self):
         # cloudwatch_logs satisfies cloudwatch_alarms dependency but is not an
-        # infrastructure component, so the alarm check should still fail
+        # alarmable component, so the alarm check should still fail
         plan = _make_plan(
             {
                 "alarms": {"type": "cloudwatch_alarms", "enabled": True},
@@ -176,6 +196,53 @@ class TestValidator:
         assert any(
             d.code == DiagnosticCode.CLOUDWATCH_ALARMS_REQUIRE_MONITORED_RESOURCE
             and d.severity == DiagnosticSeverity.ERROR
+            for d in diags
+        )
+
+    def test_cloudwatch_alarms_with_alarmable_component_passes(self):
+        # sqs_standard_queue supports alarms, so no alarm-related error expected
+        plan = _make_plan(
+            {
+                "alarms": {"type": "cloudwatch_alarms", "enabled": True},
+                "logs": {"type": "cloudwatch_logs", "enabled": True},
+                "queue": {"type": SQS_STANDARD_QUEUE.type, "enabled": True},
+            }
+        )
+        diags = Validator(plan).validate()
+        assert not any(
+            d.code == DiagnosticCode.CLOUDWATCH_ALARMS_REQUIRE_MONITORED_RESOURCE
+            for d in diags
+        )
+
+    def test_cloudwatch_alarm_validation_is_order_independent(self):
+        # alarms component listed before the alarmable component; should still pass
+        plan = _make_plan(
+            {
+                "alarms": {"type": "cloudwatch_alarms", "enabled": True},
+                "queue": {"type": SQS_STANDARD_QUEUE.type, "enabled": True},
+                "logs": {"type": "cloudwatch_logs", "enabled": True},
+            }
+        )
+        diags = Validator(plan).validate()
+        assert not any(
+            d.code == DiagnosticCode.CLOUDWATCH_ALARMS_REQUIRE_MONITORED_RESOURCE
+            for d in diags
+        )
+
+    def test_cloudwatch_alarms_before_infrastructure_in_yaml_does_not_fail(self):
+        # cloudwatch_alarms appears before the infrastructure component in iteration
+        # order (as it would when declared first in YAML); the validator must not
+        # produce a false CLOUDWATCH_ALARMS_REQUIRE_MONITORED_RESOURCE error
+        plan = _make_plan(
+            {
+                "alarms": {"type": "cloudwatch_alarms", "enabled": True},
+                "queue": {"type": SQS_STANDARD_QUEUE.type, "enabled": True},
+                "logs": {"type": "cloudwatch_logs", "enabled": True},
+            }
+        )
+        diags = Validator(plan).validate()
+        assert not any(
+            d.code == DiagnosticCode.CLOUDWATCH_ALARMS_REQUIRE_MONITORED_RESOURCE
             for d in diags
         )
 

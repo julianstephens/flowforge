@@ -88,12 +88,14 @@ def cloudwatch_alarm_details(
     *,
     component_name: str,
     component: ComponentConfig,
-    monitored_component_types: set[str],
+    alarmable_component_names: set[str],
+    alarmable_component_types: set[str],
 ) -> dict[str, Any]:
     return component_details(
         component_name=component_name,
         component=component,
-        monitored_component_types=sorted(monitored_component_types),
+        alarmable_component_names=sorted(alarmable_component_names),
+        alarmable_component_types=sorted(alarmable_component_types),
     )
 
 

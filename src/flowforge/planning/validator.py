@@ -8,11 +8,10 @@ from flowforge.catalog.components.infrastructure import (
     SQS_DLQ,
     SQS_STANDARD_QUEUE,
 )
-from flowforge.catalog.components.observability import CLOUDWATCH_ALARMS
 from flowforge.catalog.components.runtime import LOCK_MANAGER, PYTHON_RUNTIME
 from flowforge.catalog.components.workflow import DISTRIBUTED_MAP
-from flowforge.catalog.models import ComponentDefinition, ComponentKind
-from flowforge.catalog.registry import ComponentRegistry
+from flowforge.catalog.models import ComponentKind
+from flowforge.catalog.registry import ComponentNotFoundError, ComponentRegistry
 from flowforge.planning.diagnostic_details import (
     cloudwatch_alarm_details,
     component_conflict_details,
@@ -38,11 +37,13 @@ class Validator:
 
     plan: ProjectPlan
     _diagnostics: list[Diagnostic]
-    _components_by_kind: dict[ComponentKind, list[ComponentConfig]]
+    _components_by_kind: dict[ComponentKind, list[tuple[str, ComponentConfig]]]
 
     def __init__(self, plan: ProjectPlan, plan_path: str | None = None):
         self.plan = plan
         self.plan_path = plan_path
+        self._diagnostics = []
+        self._components_by_kind = defaultdict(list)
 
     def validate(self) -> list[Diagnostic]:
         """Performs validation checks on the project plan and returns a list of
@@ -62,23 +63,49 @@ class Validator:
         """
         self._diagnostics = []
         self._components_by_kind = defaultdict(list)
-        enabled_configs_by_name: dict[str, ComponentConfig] = {}
-        enabled_types: set[str] = set()
-        known_enabled_defs_by_name: dict[str, ComponentDefinition] = {}
+        enabled_configs_by_name: dict[str, ComponentConfig] = {
+            name: config
+            for name, config in self.plan.components.items()
+            if config.enabled
+        }
+        known_enabled_components_by_name: dict[str, ComponentConfig] = {}
         unknown_enabled_components: dict[str, ComponentConfig] = {}
-        for name, component_config in self.plan.components.items():
-            if component_config.enabled:
-                enabled_configs_by_name[name] = component_config
-                enabled_types.add(component_config.type)
-                try:
-                    comp_def = ComponentRegistry.get_component(component_config.type)
-                    known_enabled_defs_by_name[name] = comp_def
-                except Exception:
-                    unknown_enabled_components[name] = component_config
 
+        # build enabled component lookup and check for unknown types
         for name, component_config in enabled_configs_by_name.items():
-            if not self._validate_component_type(name, component_config):
-                continue
+            try:
+                ComponentRegistry.get_component(component_config.type)
+            except ComponentNotFoundError:
+                unknown_enabled_components[name] = component_config
+            else:
+                known_enabled_components_by_name[name] = component_config
+
+        enabled_types = {d.type for d in known_enabled_components_by_name.values()}
+
+        # populate components by kind for known types to use in dependency and
+        # compatibility checks
+        for name, component_config in known_enabled_components_by_name.items():
+            self._components_by_kind[
+                ComponentKind(
+                    ComponentRegistry.get_component_kind(component_config.type)
+                )
+            ].append((name, component_config))
+
+        # emit diagnostics for unknown component types
+        for name, component_config in unknown_enabled_components.items():
+            self._diagnostics.append(
+                Diagnostic(
+                    severity=DiagnosticSeverity.ERROR,
+                    code=DiagnosticCode.UNKNOWN_COMPONENT_TYPE,
+                    message=f"Unknown component type '{component_config.type}'",
+                    path=component_field_path(name, "type"),
+                    details=unknown_component_details(
+                        component_name=name, component=component_config
+                    ),
+                )
+            )
+
+        for name, component_config in known_enabled_components_by_name.items():
             self._validate_component_dependencies(name, component_config, enabled_types)
             self._validate_component_compatibility(
                 name, component_config, enabled_types
@@ -101,11 +128,27 @@ class Validator:
                     self._validate_lambda_worker_component(
                         name, component_config, enabled_types
                     )
-                case CLOUDWATCH_ALARMS.type:
-                    self._validate_cloudwatch_alarm_component(name, component_config)
+
+        for name, component in self._components_by_kind[ComponentKind.OBSERVABILITY]:
+            if component.type == "cloudwatch_alarms":
+                self._validate_cloudwatch_alarm_component(
+                    name, component, known_enabled_components_by_name
+                )
+
         return self._diagnostics
 
     def _validate_component_type(self, name: str, component: ComponentConfig) -> bool:
+        """Checks if the component type is valid and recognized. If not, adds an error
+        diagnostic.
+
+        Args:
+            name: The name of the component in the plan.
+            component: The ComponentConfig object representing the component's
+            configuration.
+
+        Returns:
+            True if the component type is valid and recognized, False otherwise.
+        """
         if not ComponentRegistry.is_valid_component_type(component.type):
             self._diagnostics.append(
                 Diagnostic(
@@ -119,14 +162,21 @@ class Validator:
                 )
             )
             return False
-        self._components_by_kind[
-            ComponentKind(ComponentRegistry.get_component_kind(component.type))
-        ].append(component)
         return True
 
     def _validate_component_dependencies(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
+        """Checks if all dependencies for the component are satisfied by the enabled
+        components in the plan. If any dependencies are missing, adds an error
+        diagnostic.
+
+        Args:
+            name: The name of the component in the plan.
+            component: The ComponentConfig object representing the component's
+            configuration.
+            enabled_component_types: A set of enabled component types in the plan.
+        """
         for dependency in ComponentRegistry.get_component_dependencies(component.type):
             if dependency not in enabled_component_types:
                 self._diagnostics.append(
@@ -149,6 +199,15 @@ class Validator:
     def _validate_component_compatibility(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
+        """Checks if the component is compatible with other enabled components in the
+        plan. If any conflicts are found, adds an error diagnostic.
+
+        Args:
+            name: The name of the component in the plan.
+            component: The ComponentConfig object representing the component's
+            configuration.
+            enabled_component_types: A set of enabled component types in the plan.
+        """
         for conflict in ComponentRegistry.get_component_conflicts(component.type):
             if conflict in enabled_component_types:
                 self._diagnostics.append(
@@ -169,29 +228,46 @@ class Validator:
                 )
 
     def _validate_cloudwatch_alarm_component(
-        self, name: str, component: ComponentConfig
+        self,
+        name: str,
+        component: ComponentConfig,
+        known_enabled_components_by_name: dict[str, ComponentConfig],
     ):
-        if len(self._components_by_kind[ComponentKind.INFRASTRUCTURE]) < 1:
+        """Checks if there are any enabled components that support CloudWatch alarms
+        when the CloudWatch Alarms component is enabled. If not, adds an error
+        diagnostic.
+
+        Args:
+            name: The name of the CloudWatch Alarms component in the plan.
+            component: The ComponentConfig object representing the CloudWatch Alarms
+            component's configuration.
+            known_enabled_components_by_name: A dictionary of enabled component names to
+            their ComponentConfig objects for
+            components with recognized types, used to determine which enabled components
+            support alarms.
+        """
+        alarmable_components = {}
+        for name, component in known_enabled_components_by_name.items():
+            definition = ComponentRegistry.get_component(component.type)
+            if definition.supports_alarms:
+                alarmable_components[name] = definition
+
+        if not alarmable_components:
             self._diagnostics.append(
                 Diagnostic(
                     severity=DiagnosticSeverity.ERROR,
                     code=DiagnosticCode.CLOUDWATCH_ALARMS_REQUIRE_MONITORED_RESOURCE,
                     message=(
-                        "A CloudWatch Alarm component requires at least one "
-                        "infrastructure component to be present in the plan. "
-                        "Consider adding an infrastructure component such as a "
-                        "DynamoDB Jobs Table or SQS Standard Queue to store job "
-                        "data and ensure proper monitoring and alerting."
+                        "CloudWatch alarms are enabled, but no enabled component "
+                        "supports default alarms."
                     ),
                     path=component_path(name),
                     details=cloudwatch_alarm_details(
                         component_name=name,
                         component=component,
-                        monitored_component_types={
-                            c.type
-                            for c in self._components_by_kind[
-                                ComponentKind.INFRASTRUCTURE
-                            ]
+                        alarmable_component_names=set(alarmable_components.keys()),
+                        alarmable_component_types={
+                            d.type for d in alarmable_components.values()
                         },
                     ),
                 )
@@ -200,6 +276,16 @@ class Validator:
     def _validate_distributed_map_component(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
+        """Checks if a Distributed Map component is enabled without an S3 Artifact
+        Bucket component. If so, adds a warning diagnostic about potential performance
+        issues and recommends adding an S3 Artifact Bucket.
+
+        Args:
+            name: The name of the Distributed Map component in the plan.
+            component: The ComponentConfig object representing the Distributed Map
+            component's configuration.
+            enabled_component_types: A set of enabled component types in the plan
+        """
         if (
             component.type == DISTRIBUTED_MAP.type
             and S3_ARTIFACT_BUCKET.type not in enabled_component_types
@@ -225,6 +311,16 @@ class Validator:
     def _validate_sqs_dlq_component(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
+        """Checks if an SQS Dead Letter Queue component is enabled without a standard
+        SQS Queue. If so, adds an error diagnostic about potential misconfiguration and
+        recommends adding an SQS Standard Queue.
+
+        Args:
+            name: The name of the SQS Dead Letter Queue component in the plan.
+            component: The ComponentConfig object representing the SQS Dead Letter Queue
+            component's configuration.
+            enabled_component_types: A set of enabled component types in the plan
+        """
         if (
             component.type == SQS_DLQ.type
             and SQS_STANDARD_QUEUE.type not in enabled_component_types
@@ -250,6 +346,17 @@ class Validator:
     def _validate_lambda_worker_component(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
+        """Checks if a Lambda Worker component is enabled without a valid trigger
+        component (Distributed Map, SQS Standard Queue, or API Gateway). If so,
+        adds an error diagnostic about potential non-functionality and recommends adding
+        a compatible trigger component.
+
+        Args:
+            name: The name of the Lambda Worker component in the plan.
+            component: The ComponentConfig object representing the Lambda Worker
+            component's configuration.
+            enabled_component_types: A set of enabled component types in the plan
+        """
         valid_trigger_components = {
             DISTRIBUTED_MAP.type,
             SQS_STANDARD_QUEUE.type,
@@ -280,6 +387,17 @@ class Validator:
     def _validate_dynamodb_locks_table_component(
         self, name: str, component: ComponentConfig, enabled_component_types: set[str]
     ):
+        """Checks if a DynamoDB Locks Table component is enabled while the Python
+        Runtime component is also enabled, but the Lock Manager component is not
+        enabled. If so, adds an error diagnostic about potential issues with distributed
+        locking and recommends adding the Lock Manager component.
+
+        Args:
+            name: The name of the DynamoDB Locks Table component in the plan.
+            component: The ComponentConfig object representing the DynamoDB Locks Table
+            component's configuration.
+            enabled_component_types: A set of enabled component types in the plan
+        """
         if (
             PYTHON_RUNTIME.type in enabled_component_types
             and LOCK_MANAGER.type not in enabled_component_types

@@ -31,3 +31,6 @@ class ComponentDefinition(BaseModel):
 
     outputs: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+    supports_alarms: bool = False
+    default_alarm_templates: list[str] = Field(default_factory=list)

@@ -173,3 +173,25 @@ class ComponentRegistry:
                 if comp is not None:
                     res[name] = comp
         return res
+
+    @staticmethod
+    def list_alarmable_components(
+        plan: "ProjectPlan",
+    ) -> dict[str, ComponentDefinition]:
+        """List all components that support alarms from the enabled components in a
+        project plan.
+
+        Args:
+            plan: The ProjectPlan instance containing the component configurations.
+
+        Returns:
+            A dictionary mapping component names to their ComponentDefinition instances
+            that support alarms.
+        """
+        return {
+            name: definition
+            for name, definition in ComponentRegistry.get_enabled_components(
+                plan, raise_on_missing=False
+            ).items()
+            if definition.supports_alarms
+        }
