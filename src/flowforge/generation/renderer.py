@@ -1,9 +1,10 @@
+from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, PackageLoader, TemplateNotFound, select_autoescape
 
-from flowforge.catalog.registry import ComponentNotFoundError, ComponentRegistry
-from flowforge.planning.schemas import ProjectPlan
+from flowforge.catalog import ComponentNotFoundError, ComponentRegistry
+from flowforge.planning import ProjectPlan
 
 from .models import GeneratedFile, RenderResult, TemplateSpec
 
@@ -68,7 +69,9 @@ class Renderer:
         """
         Renderer.validate_template_spec(spec)
         try:
-            template = self._jinja_env.get_template(spec.template_path.name)
+            template = self._jinja_env.get_template(
+                _get_template_name(spec.template_path)
+            )
         except TemplateNotFound as e:
             raise InvalidTemplateSpecError(spec, f"failed to load template: {e}") from e
         content = template.render(**context)
@@ -122,7 +125,14 @@ class Renderer:
             "runtime": plan.runtime,
             "components": plan.components,
             "enabled_components": enabled_components,
-            "component_types": {c.type for c in enabled_components.values()},
+            "enabled_component_types": {d.type for d in enabled_components.values()},
+            "alarmable_components": {
+                name: definition
+                for name, definition in enabled_components.items()
+                if definition.supports_alarms
+            },
+            "project_name": plan.project.name,
+            "package_name": plan.project.package_name,
         }
 
     @staticmethod
@@ -156,8 +166,7 @@ class Renderer:
                 result.errors[str(spec.template_path)] = e
                 continue
             try:
-                template_name = str(spec.template_path).split("/templates/")[1]
-                template = env.get_template(template_name)
+                template = env.get_template(_get_template_name(spec.template_path))
             except TemplateNotFound as e:
                 result.errors[str(spec.template_path)] = InvalidTemplateSpecError(
                     spec, f"failed to load template: {e}"
@@ -168,7 +177,11 @@ class Renderer:
             except ComponentNotFoundError as e:
                 result.errors[str(spec.template_path)] = RenderContextError(spec, e)
                 continue
-            content = template.render(**context)
+            try:
+                content = template.render(**context)
+            except Exception as e:
+                result.errors[str(spec.template_path)] = RenderContextError(spec, e)
+                continue
             result.generated_files.append(
                 GeneratedFile(
                     path=spec.output_path,
@@ -177,3 +190,16 @@ class Renderer:
                 )
             )
         return result
+
+
+def _get_template_name(template_path: Path) -> str:
+    """Extract the template name from the given template path.
+
+    Args:
+        template_path: The path to the template file.
+            Must contain the segment "/templates/".
+
+    Returns:
+        The template name, which is the part of the path after "/templates/".
+    """
+    return str(template_path).split("/templates/")[1]

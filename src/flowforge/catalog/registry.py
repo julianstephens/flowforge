@@ -6,7 +6,7 @@ from flowforge.catalog.components import ALL_COMPONENTS
 from .models import ComponentDefinition
 
 if TYPE_CHECKING:
-    from flowforge.planning.schemas import ProjectPlan
+    from flowforge.planning import ProjectPlan
 
 
 class ComponentNotFoundError(Exception):

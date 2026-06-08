@@ -7,11 +7,14 @@ from rich import print
 from rich.table import Table
 from typer import Typer
 
-from flowforge.catalog.registry import ComponentRegistry
-from flowforge.generation.generate import generate_project
-from flowforge.planning.diagnostics import Diagnostic, DiagnosticSeverity
-from flowforge.planning.io import load_and_validate_plan
-from flowforge.planning.validator import Validator
+from flowforge.catalog import ComponentRegistry
+from flowforge.generation import generate_project
+from flowforge.planning import (
+    Diagnostic,
+    DiagnosticSeverity,
+    Validator,
+    load_and_validate_plan,
+)
 
 app = Typer(name="flowforge", help="FlowForge CLI")
 

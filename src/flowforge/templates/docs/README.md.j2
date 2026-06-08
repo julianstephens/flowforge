@@ -43,7 +43,7 @@ This project contains AWS infrastructure and Python scaffolding for a distribute
 ├── Makefile
 ├── pyproject.toml
 └── README.md
-````
+```
 
 ## Requirements
 
@@ -177,12 +177,11 @@ CloudWatch alarms are generated for enabled components that support default alar
 
 Alarmable components in this plan:
 
-| Plan key                                                    | Component type          | Alarm templates                                                                   |                                           |
-| ----------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
-| {% for name, definition in alarmable_components.items() -%} |                         |                                                                                   |                                           |
-| `{{ name }}`                                                | `{{ definition.type }}` | {% if definition.default_alarm_templates %}`{{ definition.default_alarm_templates | join("`, `") }}`{% else %}None{% endif %} |
-| {% endfor %}                                                |                         |                                                                                   |                                           |
-| {% endif %}                                                 |                         |                                                                                   |                                           |
+| Plan key | Component type | Alarm templates |
+|---|---|---|
+{% for name, definition in alarmable_components.items() -%}
+| `{{ name }}` | `{{ definition.type }}` | {% if definition.default_alarm_templates %}`{{ definition.default_alarm_templates | join("`, `") }}`{% else %}None{% endif %} |
+{% endfor %}                                            |                         |                                                                                   |                                           |
 
 ## Plan file
 
