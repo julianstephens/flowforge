@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from flowforge.catalog import ComponentKind, ComponentNotFoundError, ComponentRegistry
 from flowforge.catalog.components.infrastructure import (
     API_GATEWAY,
     DYNAMODB_LOCKS_TABLE,
@@ -10,9 +11,8 @@ from flowforge.catalog.components.infrastructure import (
 )
 from flowforge.catalog.components.runtime import LOCK_MANAGER, PYTHON_RUNTIME
 from flowforge.catalog.components.workflow import DISTRIBUTED_MAP
-from flowforge.catalog.models import ComponentKind
-from flowforge.catalog.registry import ComponentNotFoundError, ComponentRegistry
-from flowforge.planning.diagnostic_details import (
+
+from .diagnostic_details import (
     cloudwatch_alarm_details,
     component_conflict_details,
     component_details,
@@ -22,13 +22,12 @@ from flowforge.planning.diagnostic_details import (
     missing_dependency_details,
     unknown_component_details,
 )
-from flowforge.planning.diagnostics import (
-    Diagnostic,
-    DiagnosticCode,
-    DiagnosticSeverity,
+from .diagnostics import Diagnostic, DiagnosticCode, DiagnosticSeverity
+from .paths import component_field_path, component_path
+from .schemas import (
+    ComponentConfig,
+    ProjectPlan,
 )
-from flowforge.planning.paths import component_field_path, component_path
-from flowforge.planning.schemas import ComponentConfig, ProjectPlan
 
 
 class Validator:

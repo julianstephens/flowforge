@@ -1,6 +1,6 @@
 from typing import Any
 
-from flowforge.planning.schemas import ComponentConfig
+from .schemas import ComponentConfig
 
 
 def component_details(
