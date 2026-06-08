@@ -5,7 +5,7 @@ import pytest
 from jinja2 import TemplateNotFound
 
 from flowforge.catalog.registry import ComponentNotFoundError
-from flowforge.generation.models import GeneratedFile, TemplateSpec
+from flowforge.generation.models import GeneratedFile, RenderResult, TemplateSpec
 from flowforge.generation.renderer import (
     InvalidTemplateSpecError,
     RenderContextError,
@@ -137,7 +137,8 @@ class TestRenderFiles:
     def _make_spec(
         self, tmp_path: Path, name: str = "foo.j2", out: str = "out/foo.tf"
     ) -> TemplateSpec:
-        template = tmp_path / name
+        template = tmp_path / "templates" / name
+        template.parent.mkdir(parents=True, exist_ok=True)
         template.write_text("")
         return TemplateSpec(
             template_path=template,
@@ -162,13 +163,14 @@ class TestRenderFiles:
         mock_env = self._mock_env("output content")
 
         with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
-            results = Renderer.render_files(plan=plan, template_specs=[spec])
+            result = Renderer.render_files(plan=plan, template_specs=[spec])
 
-        assert len(results) == 1
-        assert isinstance(results[0], GeneratedFile)
-        assert results[0].path == spec.output_path
-        assert results[0].content == "output content"
-        assert results[0].overwrite == spec.overwrite
+        assert isinstance(result, RenderResult)
+        assert len(result.generated_files) == 1
+        assert isinstance(result.generated_files[0], GeneratedFile)
+        assert result.generated_files[0].path == spec.output_path
+        assert result.generated_files[0].content == "output content"
+        assert result.generated_files[0].overwrite == spec.overwrite
 
     def test_renders_multiple_specs(self, tmp_path):
         plan = _make_plan()
@@ -179,48 +181,96 @@ class TestRenderFiles:
         mock_env = self._mock_env()
 
         with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
-            results = Renderer.render_files(plan=plan, template_specs=specs)
+            result = Renderer.render_files(plan=plan, template_specs=specs)
 
-        assert len(results) == 2
+        assert len(result.generated_files) == 2
 
-    def test_empty_specs_returns_empty_list(self):
+    def test_empty_specs_returns_empty_result(self):
         plan = _make_plan()
         mock_env = self._mock_env()
 
         with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
-            results = Renderer.render_files(plan=plan, template_specs=[])
+            result = Renderer.render_files(plan=plan, template_specs=[])
 
-        assert results == []
+        assert result.generated_files == []
+        assert result.errors == {}
 
     def test_overwrite_flag_propagated(self, tmp_path):
         plan = _make_plan()
-        template = tmp_path / "foo.j2"
-        template.write_text("")
+        spec = self._make_spec(tmp_path, "foo.j2", "out/foo.tf")
         spec = TemplateSpec(
-            template_path=template,
+            template_path=spec.template_path,
             output_path=Path("out/foo.tf"),
             overwrite=True,
         )
         mock_env = self._mock_env()
 
         with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
-            results = Renderer.render_files(plan=plan, template_specs=[spec])
+            result = Renderer.render_files(plan=plan, template_specs=[spec])
 
-        assert results[0].overwrite is True
+        assert result.generated_files[0].overwrite is True
 
-    def test_raises_render_context_error_on_unknown_component(self, tmp_path):
+    def test_invalid_spec_error_collected_not_raised(self, tmp_path):
+        plan = _make_plan()
+        spec = TemplateSpec(
+            template_path=tmp_path / "missing.j2",
+            output_path=Path("out/foo.tf"),
+        )
+        mock_env = self._mock_env()
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result = Renderer.render_files(plan=plan, template_specs=[spec])
+
+        assert len(result.generated_files) == 0
+        assert str(spec.template_path) in result.errors
+        assert isinstance(
+            result.errors[str(spec.template_path)], InvalidTemplateSpecError
+        )
+
+    def test_template_not_found_error_collected(self, tmp_path):
+        plan = _make_plan()
+        spec = self._make_spec(tmp_path)
+        mock_env = self._mock_env()
+        mock_env.get_template.side_effect = TemplateNotFound("foo.j2")
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result = Renderer.render_files(plan=plan, template_specs=[spec])
+
+        assert len(result.generated_files) == 0
+        assert str(spec.template_path) in result.errors
+        assert isinstance(
+            result.errors[str(spec.template_path)], InvalidTemplateSpecError
+        )
+
+    def test_render_context_error_collected(self, tmp_path):
         plan = _make_plan({"bad": {"type": "nonexistent_xyz", "enabled": True}})
         spec = self._make_spec(tmp_path)
         mock_env = self._mock_env()
 
-        with (
-            patch("flowforge.generation.renderer.Environment", return_value=mock_env),
-            pytest.raises(RenderContextError) as exc_info,
-        ):
-            Renderer.render_files(plan=plan, template_specs=[spec])
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result = Renderer.render_files(plan=plan, template_specs=[spec])
 
-        assert exc_info.value.spec is spec
-        assert isinstance(exc_info.value.cause, ComponentNotFoundError)
+        assert len(result.generated_files) == 0
+        assert str(spec.template_path) in result.errors
+        assert isinstance(result.errors[str(spec.template_path)], RenderContextError)
+
+    def test_processing_continues_after_error(self, tmp_path):
+        plan = _make_plan()
+        bad_spec = TemplateSpec(
+            template_path=tmp_path / "missing.j2",
+            output_path=Path("out/bad.tf"),
+        )
+        good_spec = self._make_spec(tmp_path, "good.j2", "out/good.tf")
+        mock_env = self._mock_env("rendered")
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result = Renderer.render_files(
+                plan=plan, template_specs=[bad_spec, good_spec]
+            )
+
+        assert len(result.generated_files) == 1
+        assert result.generated_files[0].path == good_spec.output_path
+        assert str(bad_spec.template_path) in result.errors
 
     def test_get_template_called_with_template_name(self, tmp_path):
         plan = _make_plan()

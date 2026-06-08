@@ -5,7 +5,7 @@ from jinja2 import Environment, PackageLoader, TemplateNotFound, select_autoesca
 from flowforge.catalog.registry import ComponentNotFoundError, ComponentRegistry
 from flowforge.planning.schemas import ProjectPlan
 
-from .models import GeneratedFile, TemplateSpec
+from .models import GeneratedFile, RenderResult, TemplateSpec
 
 APP_PACKAGE = "flowforge"
 
@@ -130,7 +130,7 @@ class Renderer:
         *,
         plan: ProjectPlan,
         template_specs: list[TemplateSpec],
-    ) -> list[GeneratedFile]:
+    ) -> RenderResult:
         """Render multiple templates based on the provided template specifications and
         project plan.
 
@@ -140,27 +140,36 @@ class Renderer:
             to render.
 
         Returns:
-            A list of GeneratedFile instances containing the rendered templates.
-
-        Raises:
-            InvalidTemplateSpecError: If any TemplateSpec is invalid.
-            RenderContextError: If there is an error in building the render context.
+            A RenderResult containing the list of generated files and any errors that
+            occurred during rendering.
         """
         env = Environment(
             loader=PackageLoader(APP_PACKAGE),
             autoescape=select_autoescape(),
         )
 
-        result: list[GeneratedFile] = []
+        result = RenderResult()
         for spec in template_specs:
-            Renderer.validate_template_spec(spec)
-            template = env.get_template(spec.template_path.name)
+            try:
+                Renderer.validate_template_spec(spec)
+            except InvalidTemplateSpecError as e:
+                result.errors[str(spec.template_path)] = e
+                continue
+            try:
+                template_name = str(spec.template_path).split("/templates/")[1]
+                template = env.get_template(template_name)
+            except TemplateNotFound as e:
+                result.errors[str(spec.template_path)] = InvalidTemplateSpecError(
+                    spec, f"failed to load template: {e}"
+                )
+                continue
             try:
                 context = Renderer.build_render_context(plan)
             except ComponentNotFoundError as e:
-                raise RenderContextError(spec, e) from e
+                result.errors[str(spec.template_path)] = RenderContextError(spec, e)
+                continue
             content = template.render(**context)
-            result.append(
+            result.generated_files.append(
                 GeneratedFile(
                     path=spec.output_path,
                     content=content,
