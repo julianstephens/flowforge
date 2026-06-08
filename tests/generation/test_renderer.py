@@ -302,6 +302,53 @@ class TestRenderFiles:
         assert "enabled_components" in call_kwargs
         assert "component_types" in call_kwargs
 
+    def test_deterministic_rendering_same_plan(self, tmp_path):
+        plan = _make_plan()
+        spec = self._make_spec(tmp_path)
+        call_count = 0
+
+        def deterministic_render(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            return f"rendered-{kwargs['project'].name}"
+
+        mock_template = MagicMock()
+        mock_template.render.side_effect = deterministic_render
+        mock_env = MagicMock()
+        mock_env.get_template.return_value = mock_template
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result1 = Renderer.render_files(plan=plan, template_specs=[spec])
+
+        spec2 = self._make_spec(tmp_path, "foo2.j2")
+        mock_template2 = MagicMock()
+        mock_template2.render.side_effect = deterministic_render
+        mock_env2 = MagicMock()
+        mock_env2.get_template.return_value = mock_template2
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env2):
+            result2 = Renderer.render_files(plan=plan, template_specs=[spec2])
+
+        assert result1.generated_files[0].content == result2.generated_files[0].content
+
+    def test_all_invalid_specs_produces_empty_generated_files(self, tmp_path):
+        plan = _make_plan()
+        specs = [
+            TemplateSpec(
+                template_path=tmp_path / "missing1.j2", output_path=Path("out/a.tf")
+            ),
+            TemplateSpec(
+                template_path=tmp_path / "missing2.j2", output_path=Path("out/b.tf")
+            ),
+        ]
+        mock_env = self._mock_env()
+
+        with patch("flowforge.generation.renderer.Environment", return_value=mock_env):
+            result = Renderer.render_files(plan=plan, template_specs=specs)
+
+        assert result.generated_files == []
+        assert len(result.errors) == 2
+
 
 class TestValidateTemplateSpec:
     def test_nonexistent_template_path_raises(self, tmp_path):
