@@ -312,7 +312,7 @@ class TestRenderTemplate:
         return renderer, renderer._jinja_env, mock_template
 
     def test_returns_generated_file(self, tmp_path):
-        renderer, _, mock_template = self._make_renderer_with_mock_env("hello")
+        renderer, _, _ = self._make_renderer_with_mock_env("hello")
         spec = self._make_spec(tmp_path)
         context = Renderer.build_render_context(_make_plan())
 
