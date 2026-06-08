@@ -1,7 +1,12 @@
-from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, TemplateNotFound, select_autoescape
+from jinja2 import (
+    Environment,
+    PackageLoader,
+    StrictUndefined,
+    TemplateNotFound,
+    select_autoescape,
+)
 
 from flowforge.catalog import ComponentNotFoundError, ComponentRegistry
 from flowforge.planning import ProjectPlan
@@ -39,6 +44,15 @@ class InvalidTemplateSpecError(RendererError):
         self.spec = spec
 
 
+class TemplateRenderError(RendererError):
+    """Raised when there is an error during template rendering."""
+
+    def __init__(self, spec: TemplateSpec, cause: Exception):
+        super().__init__(f"Failed to render template {spec.template_path}: {cause!s}")
+        self.spec = spec
+        self.cause = cause
+
+
 class Renderer:
     """Responsible for rendering Jinja templates into output files based on a
     project plan."""
@@ -51,34 +65,7 @@ class Renderer:
             autoescape=select_autoescape(),
             trim_blocks=True,
             lstrip_blocks=True,
-        )
-
-    def render_template(
-        self, spec: TemplateSpec, context: dict[str, Any]
-    ) -> GeneratedFile:
-        """Render a single Jinja template with the given context.
-
-        Args:
-            spec: The TemplateSpec containing the template path and other metadata.
-            context: A dictionary containing all relevant data for template rendering.
-
-        Returns:
-            The rendered template as a GeneratedFile.
-
-        Raises:
-            InvalidTemplateSpecError: If the template path is invalid or does not end
-            with .j2, or if the template cannot be loaded.
-        """
-        Renderer.validate_template_spec(spec)
-        try:
-            template = self._jinja_env.get_template(str(spec.template_path))
-        except TemplateNotFound as e:
-            raise InvalidTemplateSpecError(spec, f"failed to load template: {e}") from e
-        content = template.render(**context)
-        return GeneratedFile(
-            path=spec.output_path,
-            content=content,
-            overwrite=spec.overwrite,
+            undefined=StrictUndefined,
         )
 
     @staticmethod
@@ -156,6 +143,7 @@ class Renderer:
             autoescape=select_autoescape(),
             trim_blocks=True,
             lstrip_blocks=True,
+            undefined=StrictUndefined,
         )
 
         result = RenderResult()
@@ -180,7 +168,7 @@ class Renderer:
             try:
                 content = template.render(**context)
             except Exception as e:
-                result.errors[str(spec.template_path)] = RenderContextError(spec, e)
+                result.errors[str(spec.template_path)] = TemplateRenderError(spec, e)
                 continue
             result.generated_files.append(
                 GeneratedFile(
@@ -191,15 +179,37 @@ class Renderer:
             )
         return result
 
+    def render_template(
+        self, spec: TemplateSpec, context: dict[str, Any]
+    ) -> GeneratedFile:
+        """Render a single Jinja template with the given context.
 
-def _get_template_name(template_path: Path) -> str:
-    """Extract the template name from the given template path.
+        Args:
+            spec: The TemplateSpec containing the template path and other metadata.
+            context: A dictionary containing all relevant data for template rendering.
 
-    Args:
-        template_path: The path to the template file.
-            Must contain the segment "/templates/".
+        Returns:
+            The rendered template as a GeneratedFile.
 
-    Returns:
-        The template name, which is the part of the path after "/templates/".
-    """
-    return str(template_path).split("/templates/")[1]
+        Raises:
+            InvalidTemplateSpecError: If the template path is invalid or does not end
+            with .j2, or if the template cannot be loaded.
+            RenderContextError: If there is an error during rendering (e.g. missing
+            variables in the context).
+            TemplateRenderError: If there is an error during rendering (e.g. syntax
+            error in the template).
+        """
+        Renderer.validate_template_spec(spec)
+        try:
+            template = self._jinja_env.get_template(str(spec.template_path))
+        except TemplateNotFound as e:
+            raise InvalidTemplateSpecError(spec, f"failed to load template: {e}") from e
+        try:
+            content = template.render(**context)
+        except Exception as e:
+            raise TemplateRenderError(spec, e) from e
+        return GeneratedFile(
+            path=spec.output_path,
+            content=content,
+            overwrite=spec.overwrite,
+        )
