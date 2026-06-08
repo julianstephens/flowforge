@@ -151,6 +151,11 @@ class TestRenderFiles:
         mock_env.get_template.return_value = mock_template
         return mock_env
 
+    @pytest.fixture(autouse=True)
+    def patch_package_loader(self):
+        with patch("flowforge.generation.renderer.PackageLoader"):
+            yield
+
     def test_returns_generated_files(self, tmp_path):
         plan = _make_plan()
         spec = self._make_spec(tmp_path)
